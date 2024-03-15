@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Barcode</title>
+	
+	<link rel="stylesheet" type="text/css" href="simple.css">
+	<script src="FileSaver.js"></script>
+	<script src="JsBarcode.all.min.js"></script>
+	<script src="jszip.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/1.5.3/jspdf.debug.js" integrity="sha384-NaWTHo/8YCBYJ59830LTz/P4aQZK1sS0SneOgAvhsIl3zBu8r9RevNg5lHCHAuQ/" crossorigin="anonymous"></script>
+	<style type="text/css">
+		svg {
+			border: 1px solid gray;
+		}
+		input, select{
+			width: 100%;
+		}
+	</style>
+</head>
+<body onkeyup="update()" onload="update()">
+	<header>
+		<h2>Generador de Códigos de Barras</h2>
+		<svg id="canvas"></svg>
+		<nav>
+			<button onclick="first()"><< Primero</button>
+			<button onclick="previous()">< Anterior</button>
+			<span id="page">1/1</span>
+			<button onclick="next()">Siguiente ></button>
+			<button onclick="last()">Último >></button>
+		</nav>
+	</header>
+	<main>
+		<label>Códigos:</label>
+		<textarea id="codes" >Ejemplo 1234</textarea>
+		
+		<label>Tipo de Código:</label>
+		<select onchange="update()" id="type"></select>
+
+		<label>Ancho</label>
+		<input onchange="update()" type="number" id="width" step="1" value="2">
+
+		<label>Alto:</label>
+		<input onchange="update()" type="number" id="height" step="1" value="50">
+
+		<label>Tamaño de Fuente:</label>
+		<input onchange="update()" type="number" id="fontsize" step="1" value="20">
+
+		<button onclick="save()" style="width: 100%;">Descargar</button>
+	</main>
+
+	
+	<script>
+		let current_code = 0
+		let codes = []
+		let WIDTH = 0
+		let HEIGHT = 0
+		let TYPE = ''
+		let FONTSIZE = 0
+		
+		const CODES = [
+			'CODE128',
+			'CODE128A',
+			'CODE128B',
+			'CODE128C',
+			'EAN13',
+			'EAN8',
+			'UPC',
+			'CODE39',
+			'ITF14',
+			'ITF',
+			'MSI',
+			'MSI10',
+			'MSI11',
+			'MSI1010',
+			'MSI1110',
+			'PHARMACODE',
+			]
+
+		let type = document.getElementById('type')
+		for (var i = 0; i < CODES.length; i++) {
+			let option = document.createElement('option')
+			option.setAttribute('value', CODES[i].toLowerCase())
+			option.appendChild(document.createTextNode(CODES[i]))
+			type.appendChild(option)
+			
+		}
+
+		function get_codes(){
+			let text = document.getElementById('codes').value
+			return text.split('\n')
+		}
+
+		function update(){
+			codes = get_codes()
+			
+			WIDTH = document.getElementById('width').value
+			HEIGHT = document.getElementById('height').value
+			TYPE = document.getElementById('type').value
+			FONTSIZE = document.getElementById('fontsize').value
+			if (codes.length > 0) {
+				if (current_code + 1 > codes.length) {
+					current_code = codes.length - 1
+				}
+				update_page(current_code + 1, codes.length)
+				render(current_code)
+			}
+		}
+
+		function render(code){
+			try{
+				JsBarcode('#canvas', codes[code], {
+					format: TYPE,
+					lineColor: "#000",
+					width: WIDTH,
+					height: HEIGHT,
+					displayValue: true,
+					fontSize: FONTSIZE
+				})
+			}
+			catch(err){
+				document.getElementById('canvas').innerHTML = `<text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="red">Inválido!</text>`
+			}
+		}
+
+		function update_page(current, total) {
+			page = document.getElementById('page')
+			page.innerHTML = current + '/' + total
+		}
+
+		function next() {
+			if (current_code + 1 < codes.length){
+				current_code ++
+				update_page(current_code + 1, codes.length)
+				render(current_code)
+			}
+		}
+		function previous() {
+			if (current_code > 0){
+				current_code --
+				update_page(current_code + 1, codes.length)
+				render(current_code)
+			}
+		}
+		function first() {
+			if (current_code > 0){
+				current_code = 0
+				update_page(current_code + 1, codes.length)
+				render(current_code)
+			}
+		}
+		function last() {
+			if (current_code + 1 < codes.length){
+				current_code = codes.length - 1
+				update_page(current_code + 1, codes.length)
+				render(current_code)
+			}
+		}
+
+		function save() {
+			zip = new JSZip()
+			for (var i = 0; i < codes.length; i++) {
+				render(i)
+				current_code = i
+				let svgString = new XMLSerializer().serializeToString(document.getElementById('canvas'))
+				zip.file(i + '_' + codes[i] + '.svg', svgString)
+			}
+			zip.generateAsync({type: 'blob'}).then((content) => {
+				saveAs(content, 'barcodes.zip')
+			})
+		}
+	</script>
+</body>
+</html>
